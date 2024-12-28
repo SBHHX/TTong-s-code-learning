@@ -17,3 +17,4 @@ void main() {
 	delete[]array;
 	getchar();
 }
+//ÌâÄ¿Á·Ï°
