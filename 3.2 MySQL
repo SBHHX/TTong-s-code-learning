@@ -1,0 +1,307 @@
+/*DCL-管理用户
+
+查询用户
+USE mysql;
+SELECT * FROM user;
+
+创建用户
+CREATE USER'用户名'@'主机名” IDENTIFIED BY'密码”;
+
+3.修改用户密码
+ALTER USER '用户名'@'主机名’IDENTIFIED WITH mysql_native_password BY '新密码·;
+
+删除用户
+DROP USER'用户名'@'主机名’;
+*/
+
+/*注意:
+主机名可以使用 % 通配。
+这类SQL开发人员操作的比较少，主要是DBA( Database Administrator 数据库管理员)使用。    */
+
+
+-- 创建用户itcast，只能够在当前主机localhost访问，密码123456:
+create user 'itcast'@'localhost' identified by '123456';
+
+-- 创建用户 heima ，可以在任意主机访问该数据库，密码123456 ;
+create user 'heima'@'%' identified by '123456';
+
+-- 修改用户 heima 的访问密码为 1234;
+alter user 'heima'@'%' identified with mysql_native_password by '1234';
+
+-- 删除itcast@localhost用户
+drop user 'itcast'@'localhost';
+
+
+use mysql;
+
+select * from user;
+
+drop user 'heima'@'%';
+
+/*DCL-权限控制
+MySQL中定义了很多种权限，但是常用的就以下几种:
+ALL, ALL PRIVILEGES  所有权限
+SELECT查询数据
+INSERT插入数据
+UPDATE修改数据
+DELETE删除数据
+ALTER修改表
+DROP删除数据库/表/视图
+CREATE创建数据库/表
+*/
+
+/*DCL-权限控制
+1.查询权限
+SHOW GRANTS FOR'用户名'@'主机名’
+2.授予权限
+GRANT 权限列表 ON 数据库名.表名 TO '用户名'@'主机名';
+3.撤销权限
+REVOKE 权限列表 ON 数据库名.表名 FROM'用户名'@'主机名’*/
+/*
+注意:
+多个权限之间，使用逗号分隔
+授权时，
+数据库名和表名可以使用*进行通配，代表所有，*/
+
+show grants for 'heima'@'%';
+
+grant select,insert,update,delete,alter,drop,create on itcast.* to 'heima'@'%';
+
+revoke all privileges on itcast.* from 'heima'@'%';
+
+-- 函数
+-- CONCAT(S1,S2....Sn)  Sn拼接成一个字符串，字符串拼接，将S1，S2，
+select concat('Hello','  MySQL');
+-- LOWER(str)将字符串str全部转为小写
+select lower('Hello');
+-- UPPER(str)将字符串str全部转为大写
+select upper('MySQL');
+-- LPAD(str,n,pad)左填充，用字符串pad对str的左边进行填充，达到n个字符串长度
+
+-- RPAD(str,n,pad)右填充，用字符串pad对str的右边进行填充，达到n个字符串长度
+
+-- TRIM(str)去掉字符串头部和尾部的空格
+
+-- SUBSTRING(str,start,len)返回从字符串str从start位置起的len个长度的字符串
+
+
+-- 数值函数
+-- CEIL(x) 向上取整
+select ceil(1.5);
+-- FLOOR(x) 向下取整
+select floor(1.4);
+-- MOD(x,y) 返回x/y的模
+select mod(3,2);
+-- RAND() 返回0~1内的随机数
+select rand();
+-- ROUND(xy) 求参数x的四舍五入的值，保留y位小数
+select round(45.4896,2);
+
+
+-- CURDATE() 返回当前日期
+select curdate();
+-- CURTIME() 返回当前时间
+select curtime();
+-- NOW() 返回当前日期和时间
+select now();
+-- YEAR(date) 获取指定date的年份
+select year(now());
+-- MONTH(date) 获取指定date的月份
+select month(now());
+-- DAY(date) 获取指定date的日期
+select day(now());
+-- DATE_ADD(date, INTERVAL expr type) 返回一个日期/时间值加上一个时间间隔expr后的时间值
+select date_add(now(),interval 70 day);
+-- DATEDIFF(date1,date2) 返回起始时间date1和 结束时间date2之间的天数
+select datediff(now(),'2005-10-05');
+
+-- IF(value ,t, f) 如果value为true，则返回t，否则返回f
+select if(60>50,'对','错');
+-- IFNULL(value1 ,value2) 如果value1不为空，返回value1，否则返回value2
+select ifnull( null,2);
+-- CASE WHEN [val1 ]THEN [res1] ... ELSE [ default ] END 如果val1为true，返回res1，…否则返回default默认值
+
+-- CASE[expr ]WHEN [val1 ]THEN [res1]...ELSE[ default] END 如果expr的值等于val1，返回res1，…否则返回default默认值
+
+
+-- 1.由于业务需求变更，企业员工的工号，统一为5位数，目前不足5位数的全部在前面补0。比如: 1号员工的工号应该为00001
+update itcast.employee set worknum = lpad(worknum,5,0);
+
+-- 2.通过数据库的函数，生成一个六位数的随机验证码。
+select lpad(round(rand()*1000000,0),6,'0');
+
+-- 3.查询所有员工的入职天数，并根据入职天数倒序排序。
+select *,datediff(curdate(),entrytime) as '入职天数' from employee order by 入职天数 desc;
+
+-- 4.查询emp表的员工姓名和工作地址
+select name,
+       case workaddress
+           when '北京' then '一线城市'
+           when '上海' then '一线城市'
+           else '其他城市'
+           end as '工作城市等级'
+from employee;
+
+
+
+create table score
+(
+    id      int comment 'ID',
+    name    varchar(20) comment '姓名',
+    math    int comment '数学',
+    english int comment '英语',
+    chinese int comment '语文'
+) comment '学员成绩表';
+
+insert into score(id, name, math, english, chinese)
+VALUES
+(1, 'Tom', 67, 88, 95),
+(2, 'Rose', 23, 66, 90),
+(3, 'Jack', 56, 98, 76);
+
+-- 案例:统计班级各个学员的成绩，展示的规则如下
+-- >= 85，展示优秀
+-- >= 60，展示及格
+-- 否则，展示不及格
+select
+    *,
+    case
+        when math >= 85 then '优秀'
+        when math >= 60 then '及格' else '不及格'
+        end  as '数学等级',
+    case
+        when english >= 85 then '优秀'
+        when english >= 60 then '及格' else '不及格'
+        end as '英语等级',
+    case when chinese >= 85 then '优秀'
+        when chinese >= 60 then '及格' else '不及格'
+        end as '语文等级'
+from score;
+
+/*约束条件
+主键，并且自动增长
+不为空，并且唯一
+大于0，并且小于等于120
+如果没有指定该值，默认为1
+无
+约束关键字
+PRIMARY KEY, AUTO INCREMENT
+NOT NULL, UNIQUE
+CHECK
+DEFAULT*/
+
+create table user
+(
+    id int primary key auto_increment comment '编号',
+    name varchar(10) not null unique comment '姓名',
+    age tinyint check (age > 0 and age < 120) comment '年龄',
+    status char(1) default '1' comment '状态',
+    gender char(1) comment '性别'
+)comment '用户表';
+
+insert into user(name,age,status,gender)
+values
+    ('Jack',12,default,'男');
+
+
+
+
+-- 创建部门表
+create table dept(
+    id int auto_increment comment 'ID' primary key,
+    name varchar(50) not null comment '部门名称'
+) comment '部门表';
+
+-- 向部门表插入数据
+INSERT INTO dept(id, name) VALUES(1,'研发部'),(2,'市场部'),(3,'财务部'),(4,'销售部'),(5,'总经办');
+
+-- 创建员工表
+create table emp(
+    id int auto_increment comment 'ID' primary key,
+    name varchar(50) not null comment '姓名',
+    age int comment '年龄',
+    job varchar(20) comment '职位',
+    salary int comment '薪资',
+    entrydate date comment '入职时间',
+    managerid int comment '直属领导ID',
+    dept_id int comment '部门ID'
+) comment '员工表';
+
+INSERT INTO emp (name, age, job, salary, entrydate, managerid, dept_id)
+VALUES
+('金庸', 66, '总裁', 20000, '2000-01-01', NULL, 5),
+('张无忌', 20, '项目经理', 12500, '2005-12-05', 1, 1),
+('杨逍', 33, '开发', 8400, '2000-11-03', 2, 1),
+('韦一笑', 48, '开发', 11000, '2002-02-05', 2, 1),
+('常遇春', 43, '开发', 10500, '2004-09-07', 3, 1);
+
+/*添加外键
+1.CREATE TABLE 表名(
+    字段名 数据类型
+  ……
+[CONSTRAINT][外键名称]FOREIGN KEY(外键字段名)REFERENCES 主表(主表列名
+  );
+
+  2.ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGN KEY(外键字段名)REFERENCES 主表(主表列名);
+  */
+
+-- 添加外键
+alter table emp add constraint fk_emp_dept_id foreign key (dept_id) references dept(id);
+
+-- 第一种方法示例
+-- 创建部门表
+/*CREATE TABLE dept (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+-- 创建员工表，并定义外键约束
+CREATE TABLE emp (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    dept_id INT,
+    -- 定义外键约束，指定外键名称为 fk_emp_dept
+    CONSTRAINT fk_emp_dept FOREIGN KEY (dept_id) REFERENCES dept (id)
+);*/
+
+
+-- 删除外键
+-- ALTER TABLE 表名 DROP FOREIGN KEY 外键名称;
+alter table emp drop foreign key fk_emp_dept_id;
+
+
+-- NO ACTION 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新。(与RESTRICT一致)
+-- 默认行为，无需特意编写
+-- RESTRICT 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新。(与 NOACTION 一致)
+-- 默认行为，无需特意编写
+-- CASCADE 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有，则也删除/更新外键在子表中的记录。
+
+-- SET NULL  当在父表中删除对应记录时，首先检查该记录是否有对应外键，如果有则设置子表中该外键值为nul(这就要求该外键允许取nul)。
+
+-- SET DEFAULT  父表有变更时，子表将外键列设置成一个默认的值(Innodb不支持)
+-- MySQL不支持
+
+-- ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGNKEY(外键字段)REFERENCES 主表名(主表字段名)ON UPDATE CASCADE ON DELETE CASCADE,
+alter table emp
+    add constraint  fk_emp_dept_id
+    foreign key (dept_id)
+    references dept(id)
+    -- 设置联级更新
+    on update cascade
+    -- 设置联级删除
+    on delete cascade;
+
+alter table emp drop foreign key fk_emp_dept_id;
+
+alter table emp
+    add constraint fk_emp_dept_id
+    foreign key  (dept_id)
+    references dept(id)
+    on UPDATE set null
+    on delete set null;
+
+
+/*
+ON UPDATE SET NULL” 和 “ON DELETE CASCADE 可以混用。
+在数据库设计中，对于外键约束的行为设置，根据业务需求，
+可以为更新操作设置成将从表外键值设为 NULL，同时为删除操作设置成级联删除。*/
