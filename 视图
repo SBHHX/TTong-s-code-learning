@@ -1,0 +1,197 @@
+/*
+视图
+
+1.创建
+CREATE [OR REPLACE]VIEW 视图名称(列名列表)】AS SELECT语句[WITH[CASCADED|LOCAL]CHECK OPTION]
+
+2.查询
+查看创建视图语句:SHOW CREATE VIEW 视图名称,
+查看视图数据:SELECT*FROM 视图名称 ...,
+
+3.修改
+方式一:CREATE [OR REPLACE] VIEW 视图名称!(列名列表)AS SELECT语句[WITH[CASCADEDILOCAL] CHECK OPTION
+方式二:ALTER VIEW 视图名称(列名列表)】AS SELECT语句[WITH[CASCADED|LOCAL] CHECK OPTION]
+
+4.删除
+DROP VIEW [IF EXISTS]视图名称[,视图名称]…..
+*/
+
+
+
+-- 1.创建视图
+create or replace view stu_v_1 as select id , name from student where id <= 10;
+
+-- 2.查询视图
+show create view stu_v_1;
+
+-- 视图是一张虚拟存在的表，就把它当表来使用就可以,可以加条件之类的
+select * from stu_v_1 where id = 3 ;
+
+-- 3.修改视图
+create or replace view stu_v_1 as select id,name,no from student where id<=10;
+
+alter view stu_v_1 as select id,name from student where id<=10;
+
+-- 4.删除视图
+drop view if exists stu_v_1;
+
+
+
+
+create or replace view stu_v_1 as select id,name from student where id <= 20  ;
+
+select * from stu_v_1;
+
+-- 通过试图插入的数据直接插入到基表中
+insert into stu_v_1 values (6,'Tom');
+
+-- 创建视图时指定视图的id字段《=20，所以插入的id=30的数据在视图中看不到
+insert into stu_v_1 values (30,'Tom');
+
+
+-- 可以在创建视图时加子句 with cascaded/local check option
+create or replace view stu_v_1 as select id,name from student where id <= 20 with cascaded check option ;
+
+
+-- 视图的检查选项
+/*当使用WITH CHECK OPTION子句创建视图时，MVSOL会通过视图检查正在更改的每个行，例如 插入，更新，删除，以使其符合视图的定
+义。MySQL允许基于另一个视图创建视图，它还会检查依赖视图中的规则以保持一致性。为了确定检查的范围，mysq!提供了两个选项:
+CASCADED 和 LOCAL，默认值为 CASCADED。
+CASCADED :
+create view v1 as select id,name from student where id <= 20
+with cascaded check option ;
+create view v2 as select id , name from v1 where id >= 10 with cascaded check option ;
+*/
+
+
+/*在MySQL中，`CASCADED` 和 `LOCAL` 是在使用 `WITH CHECK OPTION` 子句创建视图时，用于确定检查范围的两个选项，它们的区别如下：
+- **检查范围**：
+    - **`CASCADED`（级联）**：若视图使用了 `WITH CASCADED CHECK OPTION`，当对该视图进行插入、更新或删除操作时，MySQL不仅会检查当前视图定义中的条件，还会递归地检查该视图所依赖的所有底层视图的条件，直至关联到真实的表数据。例如，视图B基于视图A创建，视图B设置了 `CASCADED CHECK OPTION` ，即便视图A创建时未指定检查选项，对视图B操作时也会检查视图A的条件 。
+    - **`LOCAL`（本地）**：当视图使用 `WITH LOCAL CHECK OPTION` 时，在对视图进行数据修改操作时，只会检查当前视图自身定义的条件。然后会检查其所依赖的视图是否有检查选项，若有则检查，若没有则不再检查该依赖视图的条件。比如，视图B基于视图A创建，视图B设置了`LOCAL CHECK OPTION` ，若视图A未指定检查选项，那么对视图B操作时仅检查视图B的条件，不会检查视图A的条件。
+- **默认选项**：MySQL中，若创建视图时未指定 `CASCADED` 或 `LOCAL` ，默认使用 `CASCADED` 选项。
+- **对数据修改的影响**：
+    - **`CASCADED`**：对视图进行数据修改时，要求更严格，数据必须同时满足当前视图及其所有底层依赖视图的条件，才能成功执行操作，这有助于确保数据在整个视图层次结构中的一致性。
+    - **`LOCAL`**：相对宽松，只要满足当前视图的条件，且所依赖视图（如果有检查选项）的条件也满足，就能进行数据修改。
+*/
+
+
+-- l0cal
+create or replace view v4 as select id,name from student where id <= 15 with local check option;
+
+insert into v4 values(5,'Tom');
+
+
+insert into v4 values(16,'Tom');
+
+create or replace view v5 as select id,name from v4 where id >= 10 with local check option ;
+
+insert into v5 values(13,'Tom');
+
+insert into v5 values(17,'Tom');
+
+insert into v5 values(18,'Tom');
+
+create or replace view v6 as select id,name from v5 where id < 20;
+
+insert into v6 values(17,'Tom');
+-- 依旧失败，因为一层层检索到create or replace view v4 as select id,name from student where id <= 15 with local check option;
+-- 不满足这一条<=15
+
+insert into v6 values(14,'Tom');-- 成功因为都满足
+
+/*在给定的SQL代码中，要确定能插入 `v6` 视图的 `id` 值，需要分析视图的定义以及相关的 `CHECK OPTION` 设置，以下是详细分析：
+
+### 视图v4的定义
+```sql
+create or replace view v4 as select id,name from student where id <= 15 with local check option;
+```
+`v4` 视图从 `student` 表中选取 `id` 小于等于15的记录，并且设置了 `LOCAL CHECK OPTION`。这意味着向 `v4` 插入数据时，只检查当前视图的条件，即 `id <= 15`。
+
+### 视图v5的定义
+```sql
+create or replace view v5 as select id,name from v4 where id >= 10 with local check option ;
+```
+`v5` 视图基于 `v4` 创建，选取 `v4` 中 `id` 大于等于10的记录，同时也设置了 `LOCAL CHECK OPTION`。因此，向 `v5` 插入数据时，要同时满足 `v5` 自身的条件 `id >= 10` 和所依赖视图 `v4` 的条件 `id <= 15`，即插入的 `id` 范围是 `10 <= id <= 15`。
+
+### 视图v6的定义
+```sql
+create or replace view v6 as select id,name from v5 where id < 20;
+```
+`v6` 视图基于 `v5` 创建，但**没有设置 `CHECK OPTION`**，在MySQL中默认行为相当于 `CASCADED CHECK OPTION`。这意味着向 `v6` 插入数据时，不仅要满足 `v6` 自身的条件 `id < 20`，还要满足其依赖视图 `v5` 的条件 `10 <= id <= 15`  以及 `v5` 依赖的 `v4` 的条件 `id <= 15`。
+
+综合以上分析，能插入到 `v6` 视图的 `id` 取值范围是**10 <= id <= 15**。 */
+
+
+
+
+-- casecaded
+create or replace view v1 as select id,name from student where id <= 15 with cascaded check option;
+
+insert into v1 values(5,'Tom');
+
+
+insert into v1 values(16,'Tom');
+
+create or replace view v2 as select id,name from v1 where id >= 10 with cascaded check option ;
+
+insert into v2 values(13,'Tom');
+
+insert into v2 values(17,'Tom');
+
+insert into v2 values(18,'Tom');
+
+create or replace view v3 as select id,name from v2 where id < 20;
+
+insert into v3 values(17,'Tom');
+
+
+/*它们区别很清晰。以视图 `v3` 基于 `v2` ，`v2` 基于 `v1` 为例：
+- **`CASCADED`** ：向 `v3` 插入数据，会依次检查 `v3` 自身条件（`id < 20`）、`v2` 的条件（`id >= 10`）和 `v1` 的条件（`id <= 15`），只有全部满足才能插入。比如插入 `id` 为 17 的数据，虽满足 `v3` ，但不满足 `v1` ，插入失败。
+- **`LOCAL`** ：向 `v3` 插入时，先检查 `v3` 自身条件，若 `v2` 设置了检查选项，就检查 `v2` 条件；若 `v2` 没设置，即使 `v1` 有条件限制，也不检查 `v1` 。比如 `v2` 没设置检查选项，`v3` 自身条件满足，插入 `id` 为 17 的数据可能成功，因为不检查 `v1` 中 `id <= 15` 的条件 。
+
+综上，`CASCADED` 检查更全面严格，`LOCAL` 相对灵活，只关注部分关联条件。 */
+
+-- 总结：casecaded会检查之前所有依赖的，不管有没有写with……casecaded
+-- 而local如果检查到中间发现没有写with local……就会中断不继续检查了
+
+
+
+/*视图的更新
+要使视图可更新，视图中的行与基础表中的行之间必须存在一对一的关系。如果视图包含以下任何一项，则该视图不可更新:
+1.
+聚合函数或窗口函数(SUM()、MIN()、MAX()、COUNT()等)
+DISTINCT
+2
+GROUP BY
+3.
+4.HAVING
+UNION 或者 UNION ALL
+5.*/
+
+
+/*作用
+简单
+视图不仅可以简化用户对数据的理解，也可以简化他们的操作。那些被经常使用的查询可以被定义为视图，从而使得用户不必为以后的操作
+每次指定全部的条件。
+安全
+数据库可以授权，但不能授权到数据库特定行和特定的列上。通过视图用户只能查询和修改他们所能见到的数据
+数据独立
+人
+视图可帮助用户屏蔽真实表结构变化带来的影响。*/
+
+
+
+
+
+-- 案例:
+
+-- 1、为了保证数据库表的安全性，开发人员在操伯tb_usen表时，只能看到的用户的基本字段，屏蔽手机号和邮箱两个字段。
+
+select * from v1;
+-- 2.查询每个学生所选修的课程(三张表联査)，这个功能在很多的业务中都有使用到，为了简化操作，定义一个视图。
+create view v2 as select s.name s_name,s.no ,c.name c_name
+                  from student s
+                      inner join student_course sc on s.id = sc.student_id
+                      inner join course c on c.id = sc.course_id;
+
+select * from v2;
