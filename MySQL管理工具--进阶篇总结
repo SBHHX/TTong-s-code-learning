@@ -1,0 +1,100 @@
+-- MySQL管理
+
+
+-- MySQL系统数据库及其作用：
+-- **mysql**：存放MySQL服务器运行必需信息，像时区设置决定时间显示规则 ；主从配置用于搭建主从复制架构实现数据同步；用户表记录账号信息，权限表控制用户对数据库对象操作权限，保障系统正常运转和安全。
+-- **information_schema**：作为元数据仓库，涵盖数据库、表、字段等结构信息，还有访问权限等。开发和运维人员借此了解数据库对象定义、结构，用于编写查询、管理权限等，是获取数据库基础信息的关键来源。
+-- **performance_schema**：专注服务器性能监控，收集如查询执行时间、资源消耗、锁等待时间等性能参数。通过分析这些数据，能定位性能瓶颈，优化数据库配置、查询语句，提升整体性能。
+-- **sys**：基于performance_schema构建，提供性能调优和诊断视图。DBA和开发人员可利用它快速获取关键性能指标、分析资源使用情况，简化复杂性能数据的解读和分析过程，提高调优和诊断效率。
+
+
+
+
+
+
+
+--  MySQL 管理工具 `mysqladmin` ：
+/*- **工具定义**：`mysqladmin` 是执行管理操作的客户端程序，可用于检查服务器配置与状态、创建/删除数据库等。
+- **查看选项方法**：通过命令 `mysqladmin --help` 查看可用选项，部分关键选项及功能如下：
+  - `create databasename`：创建新数据库。
+  - `drop databasename`：删除数据库及其所有表。
+  - `password [new-password]`：修改当前用户密码。
+  - `version`：获取服务器版本信息。
+  - `status`：获取服务器简短状态信息。
+- **使用示例**：
+  - `mysqladmin -uroot -p123456 drop 'test01'`：以 `root` 用户、密码 `123456` 连接，删除名为 `test01` 的数据库。
+  - `mysqladmin -uroot -p123456 version`：获取服务器版本信息。*/
+
+
+
+
+
+--  MySQL 日志管理工具 `mysqlbinlog` ：
+/*- **工具作用**：MySQL 服务器生成的二进制日志文件以二进制格式保存，`mysqlbinlog` 用于将这些二进制日志解析为文本格式，方便检查日志内容。
+- **语法格式**：`mysqlbinlog [options] log-files1 log-files2 ...`，其中 `[options]` 为可选参数，`log-files` 为要解析的二进制日志文件。
+- **核心选项**：
+  - `-d, --database=name`：指定数据库名称，仅列出该数据库相关的操作日志。
+  - `-o, --offset=#`：忽略日志中前 `n` 行命令。
+  - `-r,--result-file=name`：将解析后的文本格式日志输出到指定文件。
+  - `-s, --short-form`：以简单格式显示日志，省略部分信息。
+  - `--start-datetime=date1 --stop-datetime=date2`：筛选指定日期间隔内的所有日志。
+  - `--start-position=pos1 --stop-position=pos2`：提取指定位置间隔内的日志内容*/。
+
+
+
+
+
+
+--  MySQL 备份工具 `mysqldump` ：
+/*- **工具定位**：`mysqldump` 是客户端工具，用于备份数据库或在不同数据库间迁移数据，备份内容包含创建表结构及插入表数据的 SQL 语句。
+- **语法格式**：
+  - `mysqldump [options] db_name [tables]`：备份指定数据库的部分表。
+  - `mysqldump [options] --database/-B db1 [db2 db3...]`：备份多个指定数据库。
+  - `mysqldump [options] --all-databases/-A`：备份所有数据库。
+- **连接选项**：
+  - `-u, --user=name`：指定连接数据库的用户名。
+  - `-p, --password[=name]`：指定用户密码（`=name` 可省略，后续手动输入更安全）。
+  - `-h, --host=name`：指定数据库服务器的 IP 或域名。
+  - `-P, --port=#`：指定连接的端口号。
+- **输出选项**：
+  - `--add-drop-database`：在每个数据库创建语句前添加 `drop database` 语句。
+  - `--add-drop-table`：在每个表创建语句前添加 `drop table` 语句（默认开启，关闭用 `--skip-add-drop-table`）。
+  - `-n, --no-create-db`：备份不包含数据库的创建语句。
+  - `-t, --no-create-info`：备份不包含数据表的创建语句。
+  - `-d, --no-data`：仅备份表结构，不包含数据。
+  - `-T, --tab=name`：自动生成两个文件，一个 `.sql` 文件（含建表结构语句），一个 `.txt` 文件（含数据）。*/
+
+
+
+
+--  MySQL 数据导入相关工具：
+/*- **`mysqlimport`工具**：
+  - **定位**：客户端数据导入工具，专门导入 `mysqldump` 加 `-T` 参数后导出的文本文件。
+  - **语法**：`mysqlimport [options] db_name textfile1 [textfile2...]`，需指定数据库名和要导入的文本文件。
+  - **示例**：`mysqlimport -uroot -p2143 test /tmp/city.txt`，表示以 `root` 用户、密码 `2143` 连接，将 `/tmp/city.txt` 文件导入到 `test` 数据库。
+- **`source`指令**：
+  - **定位**：用于在 MySQL 客户端导入 `.sql` 文件。
+  - **语法**：`source /文件路径/文件名.sql`，例如 `source /root/xxxxx.sql`，直接在 MySQL 命令行客户端执行，即可导入指定路径的 SQL 文件。*/
+
+
+
+
+
+--  MySQL 常用工具总结，各工具作用如下：
+/*1. **mysql**：MySQL 客户端工具，通过 `-e` 选项可执行 SQL 语句并退出，用于连接数据库执行操作。
+2. **mysqladmin**：MySQL 管理工具，用于执行服务器管理操作，如检查服务器状态、创建/删除数据库、修改密码等。
+3. **mysqlbinlog**：二进制日志查看工具，解析 MySQL 二进制日志文件，以文本格式查看日志内容。
+4. **mysqlshow**：用于查看数据库、表、字段的统计信息，快速查找数据库对象（如数据库、表、列、索引）相关信息。
+5. **mysqldump**：数据备份工具，用于备份数据库或在不同数据库间迁移数据，备份内容包含建表语句和插入数据的 SQL 语句。
+6. **mysqlimport/source**：数据导入工具。`mysqlimport` 导入 `mysqldump` 加 `-T` 参数导出的文本文件；`source` 是 MySQL 客户端指令，用于导入 `.sql` 文件。*/
+
+
+
+
+
+
+
+  
+--  MySQL 进阶学习的知识路径，包含以下实体内容：  
+-- **学习模块**：按进阶顺序依次为存储引擎、索引、SQL优化、视图...触发器、锁、InnoDB引擎、MySQL管理。  
+-- **最终指向**：这些模块最终导向“MySQL进阶篇”，暗示后续深入学习的内容方向，体现从基础到高级管理的知识递进体系。

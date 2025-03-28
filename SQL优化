@@ -1,0 +1,255 @@
+-- SQL优化
+
+
+
+-- 插入数据
+
+/*#客户端连接服务端时，加上参数
+--local-infile
+mysql--local-infile -u root -p
+#设置全局参数local_infile为，开启从本地加载文件导入数据的开关
+set global local infile=1:
+#执行load指令将准备好的数据，加载到表结构中
+load data local infile '/root/sall.log' into table 'tb user` fields terminated by ',' lines terminated by '\n';*/
+
+
+/*insert优化
+批量插入
+Insert into tb test values(1,'Tom'),(2,'cat'),(3, erry');
+
+  手动提交事务
+start transaction;
+insert into tb_test values(1,'Tom'),(2,'Cat'),(3,'jerry');
+insert into tb_test values(4,'Tom'),(5,'cat'),(6, jerry');
+insert into tb test values(7,'Tom'),(8,'Cat'),(9, jerry');
+commit;
+
+主键顺序插入9 76 8 9 6 4 5 6 7 8 77 7 7 6 4 3 3 4 6 89 8 6
+主键乱序插入:819
+主键顺序插入:1 2 3 4 5 6 7 8 9 45 56 67 78 89
+*/
+
+
+
+-- 主键优化
+
+-- 数据组织方式
+-- 在InnoDB存储引擎中，表数据都是根据主键顺序组织存放的，这种存储方式的表称为索引组织表(index organized table I0T)
+
+-- 页分裂
+-- 页可以为空，也可以填充一半，也可以填充100%。每个页包含了2-N行数据(如果一行数据多大，会行溢出)，根据主键排列。
+
+-- 页合并
+/*当删除一行记录时，实际上记录并没有被物理删除，只是记录被标记(flaged)为删除并且它的空间变得允许被其他记录声明使用。当页中删除的记录达到
+MERGETHRESHOLD(默认为页的50%)，InnoDB会开始寻找最靠近的页(前或后)看看是否可以将两个页合并以优化空间使用。*/
+
+-- 知识小贴士:
+-- MERGE THRESHOLD:合并页的阈值，可以自己设置，在创建表或者创建索引时指定
+
+-- 主键设计原则
+-- 1.满足业务需求的情况下，尽量降低主键的长度。
+-- 2.插入数据时，尽量选择顺序插入，选择使用AUTOINCREMENT自增主键，
+-- 3.尽量不要使用UUID做主键或者是其他自然主键，如身份证号。
+-- 4.业务操作时，避免对主键的修改。
+
+
+
+
+/*order by优化
+①.Using fileson:通过表的索引或全表扫描，读取满足条件的数据行，然后在排序缓冲区sortbufer中完成排序操作，所有不是通过索引直
+接返回排序结果的排序都叫 FileSort 排序。
+②.Usingindex:通过有序索引顺序扫描直接返回有序数据，这种情况即为usingindex，不需要额外排序，操作效率高。*/
+
+show tables;
+
+show index from tb_user;
+
+drop index index_user_phone on tb_user;
+
+drop index index_user_name on tb_user;
+
+explain select id ,age,phone from tb_user order by age;
+
+explain select id ,age,phone from tb_user order by age,phone;
+
+/*#没有创建索引时，根据age,phone进行排序
+explain select id,age,phone from tb user order by age , phone;
+#创建索引
+create index idx user age phone aa on tb_user(age,phone);,
+#创建索引后，根据age，phone进行升序排序
+explain select id,age,phone from tb user order by age , phone;
+#创建索引后，根据age，phone进行降序排序
+explain select id,age,phone from tb user order by age desc , phone desc ;*/
+
+create index idx_user_age_phone on tb_user(age,phone);
+
+explain select id ,age,phone from tb_user order by age,phone;
+
+-- 倒序排列，反向扫面
+explain select id ,age,phone from tb_user order by age desc ,phone desc ;
+
+-- 因为创建缩影的时候是age在前phone在后，这样搜索违背了最左前缀法则，所以要扫描全表
+explain select id ,age,phone from tb_user order by phone,age;
+
+show index from tb_user;
+
+-- 要扫描全表，因为创建索引的时候就是默认的升序排列，所以查询倒序的时候要扫描全表
+explain select id ,age,phone from tb_user order by age desc ,phone  ;
+
+-- 再创建一个age字段是升序，phone字段是倒序的索引，避免全表扫描
+create index idx_user_age_phone_ad on tb_user(age asc,phone desc);
+
+create index idx_user_age_phone_ad_bc on tb_user(age desc,phone desc);
+
+/*以下对比你涉及的两种倒序查询：
+- **`explain select id ,age,phone from tb_user order by age desc ,phone desc ;`**
+    - **索引利用情况**：查询中`order by`后的`age`和`phone`列倒序，与复合索引`idx_user_age_phone(age,phone)` 列顺序一致，只是排序方向为
+  倒序。由于B+树索引叶子节点是双向链表，MySQL可反向扫描索引，且查询列被索引覆盖，能高效获取数据，无需全表扫描。
+    - **执行效率**：执行效率较高，利用索引的双向链表特性，快速按倒序获取数据。
+- **`explain select id ,age,phone from tb_user order by age desc ,phone ;`**
+    - **索引利用情况**：`order by`中`age`倒序，`phone`默认升序，和复合索引列顺序不完全匹配（`age`排序方向不同），MySQL查询优化器无法利用现有
+  索引完成排序，只能全表扫描，再在内存中排序。
+    - **执行效率**：执行效率低，全表扫描需读取大量数据，消耗更多I/O和CPU资源。 */
+
+-- 但是这些规则实现的前提都是：使用了覆盖索引，也就是说，你的索引必须要覆盖所有查询的字段
+
+-- 查看排序缓冲区大小
+show variables like 'sort_buffer_size';
+
+-- 根据排序字段建立合适的索引，多字段排序时，也遵循最左前缀法则。
+-- 尽量使用覆盖索引。
+-- 多字段排序,一个升序一个降序，此时需要注意联合索引在创建时的规则(ASC/DESC)。
+-- 如果不可避免的出现filesort，大数据量排序时，可以适当增大排序缓冲区大小sort_buffer_size(默认256K)。
+
+
+
+-- group by优化
+
+show index from tb_user;
+
+drop index index_user_pas on tb_user;
+
+drop index idx_user_age_phone on tb_user;
+
+drop index idx_user_age_phone_ad on tb_user;
+
+drop index idx_user_age_phone_ad_bc on tb_user;
+
+#删除掉目前的联合索引idx_user_pro_age_sta
+-- drop index idx user pro age sta on tb_user;
+
+#执行分组操作，根据profession字段分组
+select profession , count(*) from tb_user group by profession ;
+
+explain select profession , count(*) from tb_user group by profession ;
+
+#创建索引
+create index idx_user_pas on tb_user(profession,age,status);
+
+#执行分组操作，根据profession字段分组
+select profession , count(*) from tb_user group by profession ;
+
+explain select profession , count(*) from tb_user group by profession ;
+
+#执行分组操作，根据age字段分组
+-- 违背了最左前缀法则
+select age , count(*) from tb_user group by age ;
+
+explain select age , count(*) from tb_user group by age ;
+
+#执行分组操作，根据profession和age字段分组
+select profession, age , count(*) from tb_user group by profession , age ;
+
+explain select profession ,age, count(*) from tb_user group by profession , age ;
+
+#执行分组操作，根据profession字段过滤，根据age字段分组
+-- 使用到了profession的索引，满足最左前缀法则，不会创建临时表
+select age , count(*) from tb_user where tb_user.profession ='软件工程' group by age ;
+
+explain select age , count(*) from tb_user where tb_user.profession ='软件工程' group by age ;
+
+
+/*limit优化
+一个常见又非常头疼的问题就是 limit 2000000,10 ，此时需要MVSOL排序前2000010 记录，仅仅返回2000000-2000010
+的记录，其他记录丢弃，查询排序的代价非常大。
+优化思路:一般分页查询时，通过创建 覆盖索引 能够比较好地提高性能，可以通过覆盖索引加子查询形式进行优化。
+explain select * from tb sku t , (select id from tb sku order by id limit 2000000,10) a wheretid = a.id;*/
+
+-- MySQL版本不支持在in/all/any/some后面加limit
+select * from tb_user where id in (select id from tb_user order by id limit 0,10);
+
+-- 将子查询得到的id视作一张单独的表，用多表联查
+select tb.* from tb_user tb , (select id from tb_user order by id limit 0,10) b where tb.id = b.id;
+
+
+/*count优化
+explain select count(*)from tb user :
+>MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行 count(*)的时候会直接返回这个数，效率很高;
+>InnoDB 引擎就麻烦了，它执行 count(*)的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。
+优化思路:自己计数。*/
+
+
+/*count的几种用法
+count(主键)
+InnoDB 引擎会遍历整张表，把每一行的 主键id 值都取出来，返回给服务层。服务层拿到主键后，直接按行进行累加(主键不可能为nul)。
+
+count(字段)
+没有notnul 约束:InnoD8引擎会遍历整张表把每一行的字段值都取出来，返回给服务层，服务层判断是否为null，不为null，计数累加。
+有not nul 约束:InnoDB引擎会遍历整张表把每一行的字段值都取出来，返回给服务层，直接按行进行累加。
+
+count(1)
+InnoDB 引擎遍历整张表，但不取值。服务层对于返回的每一行，放一个数字“1”进去，直接按行进行累加。
+
+count(*)
+InnoDB引擎并不会把全部字段取出来，而是专门做了优化，不取值，服务层直接按行进行累加。
+按照效率排序的话，count(字段)<count(主键id)<count(1)~count(*)，所以尽量使用 count(*)。*/
+
+
+
+/*update优化
+update student set no='2000100100'where id =1;
+update student setno='2000100105'where name='韦一笑'.
+InnoDB的行锁是针对索引加的锁，不是针对记录加的锁,并且该索引不能失效，否则会从行锁升级为表锁。*/
+
+/*
+简述一下，比如我在事务一中修改id=1行中的内容，但不提交事务，同时在事务二中开始修改id=4的行中的内容，而这可以同时成功。因为id字段有索引且未失效
+但如果修改没有索引的name字段，事务一修改id=1行的内容，但是不提交，同时事务二修改的id=4会一直等待，等待事务一提交后才能修改成功
+因为INODB在update时，若修改字段有索引且没有失效，就只给这一行数据上锁，称为行锁
+反之，没有索引或者失效，会给整张表上锁，称为表锁
+*/
+
+
+
+
+-- 总结
+
+/*
+
+  1. 插入数据
+insert:批量插入、手动控制事务、
+主键顺序插入
+大批量插入:load data local infile
+
+  2.主键优化
+主键长度尽量短、顺序插入
+AUTO INCREMENT
+UUID
+
+  3.order by优化
+using index:直接通过索引返回数据
+性能高
+using filesort:需要将返回的结果在排序缓冲区排序
+
+  4.
+group by优化
+索引，多字段分组满足最左前缀法则
+
+  5.limit优化
+覆盖索引+子查询
+
+  6.count优化
+性能: count(字段)< count(主键 id)
+< count(1)≈ count(*
+
+  7.update优化
+尽量根据主键/索引字段进行数据更新*/

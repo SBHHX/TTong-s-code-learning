@@ -1,0 +1,268 @@
+-- 通过查询执行频次来决定针对性优化
+-- SQL执行频率
+-- MVSOL客户端连接成功后，通过show[sessionlglobal status 命令可以提供服务器状态信息。通过如下指令，可以查看当前数据库的
+-- INSERT、UPDATE、DELETE、SELECT的访问频次:
+-- SHOW GLOBAL STATUS LIKE 'Com_';
+
+show global status;
+
+show global status like 'Com_______';
+
+select * from tb_user;
+
+-- 查询慢查询日志开启状态
+show variables like 'slow_query_log';
+
+/*慢查询日志
+慢查询日志记录了所有执行时间超过指定参数(long_query_time，单位:秒，默认10秒)的所有SQL语句的日志。
+MySQL的慢查询日志默认没有开启，需要在MySQL的配置文件(/etc/my.cnf)中配置如下信息:
+# 开启MySOL慢日志查询开关
+slow query log=1
+# 设置慢日志的时间为2秒，SOL语句执行时间超过2秒，就会视为慢查询，记录慢查询日志
+long query time=2
+  */
+
+SHOW VARIABLES LIKE 'long_query_time';
+
+
+SHOW VARIABLES LIKE 'slow_query_log';   -- 应返回 ON
+SHOW VARIABLES LIKE 'long_query_time'; -- 应返回 2.000000
+
+/*用windows命令行可以修改吗
+
+是的，你可以使用 Windows 命令行 来修改 MySQL 的慢查询日志配置，具体操作如下：
+
+1. 修改 MySQL 配置文件 (my.ini)
+虽然命令行可以编辑文件，但直接使用文本编辑器更方便。以下是通过命令行修改的步骤：
+
+打开命令行：
+按 Win + R，输入 cmd，然后按 Ctrl + Shift + Enter 以管理员身份运行。
+
+编辑 my.ini：
+使用 notepad 打开配置文件：
+
+Cmd
+notepad "C:\ProgramData\MySQL\MySQL Server 8.0\my.ini"
+添加或修改配置：
+在 [mysqld] 部分添加以下内容：
+
+Ini
+slow_query_log = 1
+slow_query_log_file = "C:/ProgramData/MySQL/MySQL Server 8.0/slow.log"
+long_query_time = 2
+保存并退出：
+按 Ctrl + S 保存，关闭记事本。
+
+2. 重启 MySQL 服务
+在命令行中执行以下命令重启服务：
+
+Cmd
+net stop MySQL80
+net start MySQL80
+3. 验证配置
+登录 MySQL：
+在命令行中执行：
+
+Cmd
+mysql -u root -p
+输入密码后登录。
+
+检查配置：
+执行以下 SQL 命令：
+
+SQL
+SHOW VARIABLES LIKE 'slow_query_log';   -- 应返回 ON
+SHOW VARIABLES LIKE 'long_query_time'; -- 应返回 2.000000
+4. 动态修改（无需重启）
+如果你不想修改配置文件，可以直接通过命令行动态调整配置：
+
+登录 MySQL：
+
+Cmd
+mysql -u root -p
+执行 SQL 命令：
+
+SQL
+SET GLOBAL slow_query_log = ON;
+SET GLOBAL long_query_time = 2;
+验证：
+
+SQL
+SHOW VARIABLES LIKE 'slow_query_log';
+SHOW VARIABLES LIKE 'long_query_time';
+总结
+推荐方式：通过命令行动态修改（无需重启，但重启后失效）。
+持久化方式：修改 my.ini 并重启服务（配置永久生效）。*/
+
+/*                                       1. 直接添加新配置
+如果你不想动原有的配置行，直接添加新配置是完全可行的。例如：
+• 在 [mysqld] 部分添加以下内容来开启慢查询日志：
+Ini
+￼
+slow_query_log = 1
+slow_query_log_file = "C:/ProgramData/MySQL/MySQL Server 8.0/slow.log"
+long_query_time = 2
+• 优点：不会影响原有的配置，灵活性高。
+• 注意：确保新配置与原有配置没有冲突（如重复的配置项）。
+2. 直接修改已有配置
+如果文件中已经存在相关配置（如 long_query_time），你可以直接修改对应的值。例如：
+• 找到 long_query_time 这一行，将值改为 2：
+Ini
+￼
+long_query_time = 2
+• 优点：直接生效，避免配置冗余。
+• 注意：修改前最好备份 my.ini 文件，以防误操作。
+3. 操作建议
+• 如果已有相关配置：直接修改更简洁。
+• 如果没有相关配置：直接添加新配置。
+• 保存文件：按 Ctrl + S 保存修改。
+• 重启 MySQL 服务：在命令行中执行以下命令使配置生效：
+Cmd
+￼
+net
+ stop MySQL80
+net start MySQL80
+4. 验证配置
+登录 MySQL 并执行以下命令：
+SQL
+￼
+SHOW VARIABLES LIKE 'slow_query_log';   -- 应返回 ON
+SHOW VARIABLES LIKE 'long_query_time'; -- 应返回 2.000000
+总结
+• 直接添加：安全且灵活，适合新增配置。
+• 直接修改：简洁高效，适合调整已有配置。
+根据你的需求选择即可，操作后记得保存并重启服务！*/
+
+select * from tb_user;
+
+select @@have_profiling;
+
+select @@profiling;
+
+
+set session profiling=1;
+
+/*profile详情
+show profiles 能够在做SOL优化时帮助我们了解时间都耗费到哪里去了。通过have profiling参数，能够看到当前MVSOL是否支持
+profile操作:
+SELECT @@have profiling ;
+默认profiling是关闭的，可以通过set语句在session/global级别开启profiling:
+SET profiling=1;
+*/
+
+/*profile详情
+执行一系列的业务SOL的操作，然后通过如下指令查看指令的执行耗时:
+#查看每一条SQL的耗时基本情况
+show profiles.
+#查看指定query id的SQL语句各个阶段的耗时情况
+show profile for query query id;
+#查看指定query id的SQL语句CPU的使用情况
+show profile cpu for query query _id;*/
+
+select * from tb_user;
+
+select * from tb_user where id = 1;
+
+select * from tb_user where name = '白起';
+
+select count(*) from tb_user;
+
+show profiles ;
+
+/*explain执行计划
+EXPLAIN 或者 DESC命令获取 MVSOL如何执行 SELECT语句的信息，包括在SELECT 语句执行过程中表如何连接和连接的顺序。
+语法:
+# 直接在select语句之前加上关键字 explain/desc
+EXPLAIN SELECT 字段列表 FROM 表名 WHERE 条件:*/
+
+/*explain select * from tb_user where id = 1;
+
+explain执行计划
+EXPLAIN 执行计划各字段含义:
+
+id
+select查询的序列号，表示查询中执行select子句或者是操作表的顺序(id相同，执行顺序从上到下;id不同，值越大，越先执行)。
+
+select type
+表示 SELECT的类型，常见的取值有 SIMPLE(简单表，即不使用表连接或者子查询)、PRIMARY(主查询，即外层的查询)
+UNION(UNION 中的第二个或者后面的查询语句)、SUBOUERY(SELECT/WHERE之后包含了子查询)等
+
+type
+表示连接类型，性能由好到差的连接类型为NULL、system、const、eg ref、ref、range、index、all。
+
+possible key
+显示可能应用在达张表上的索引，一个或多个。
+
+Key
+实际使用的索引，如果为NULL，则没有使用索引。
+
+Key_len
+表示索引中使用的字节数， 该值为索引字段最大可能长度，并非实际使用长度，在不损失精确性的前提下，长度越短越好
+
+rowS
+MySQL认为必须要执行查询的行数，在innodb引擎的表中，是一个估计值，可能并不总是准确的。
+
+filtered
+表示返回结果的行数占需读取行数的百分比，filtered 的值越大越好，
+  */
+
+/*重点关注type，possible-key，key-len
+
+从你的描述来看，你提到的 **三个字段加一个 key** 可能是指 MySQL 性能分析中的 `type`、`possible_key`、`key_len` 和 `key` 字段。以下是它们的具体作用以及如何通过这些字段判断性能优劣：
+
+---
+
+### **1. `type`（访问类型）**
+- **作用**：表示数据库在执行查询时访问数据的方式。
+- **性能判断**：
+  - **高效类型**：`system`、`const`、`eq_ref`，表示查询效率极高。
+  - **一般类型**：`ref`、`range`，表示查询效率尚可。
+  - **低效类型**：`index`、`ALL`，表示查询效率较差，尤其是 `ALL`（全表扫描），需要优化。
+
+---
+
+### **2. `possible_key`（可能用到的索引）**
+- **作用**：列出查询中可能使用的索引。
+- **性能判断**：
+  - 如果 `possible_key` 为空，说明查询可能没有可用的索引，导致性能较差。
+  - 如果 `possible_key` 中有多个索引，但实际使用的索引（`key` 字段）较少，可能存在索引冗余或选择不当的问题。
+
+---
+
+### **3. `key_len`（索引使用长度）**
+- **作用**：表示查询中实际使用索引的字节数。
+- **性能判断**：
+  - 对于复合索引，`key_len` 越长，表明索引被利用得越充分。
+  - 如果 `key_len` 较短，可能是未遵循最左前缀原则，导致复合索引未被完全使用，索引效率降低。
+
+---
+
+### **4. `key`（实际使用的索引）**
+- **作用**：表示查询中实际使用的索引。
+- **性能判断**：
+  - 如果 `key` 为空，说明查询未使用索引，性能较差。
+  - 如果 `key` 与 `possible_key` 中的最优索引一致，说明索引选择合理，性能较好。
+
+---
+
+### **综合判断性能优劣**
+- **性能较好**：
+  - `type` 为高效类型（如 `const`、`eq_ref`）。
+  - `possible_key` 中有合适索引，且 `key` 与最优索引一致。
+  - `key_len` 能充分利用索引。
+- **性能较差**：
+  - `type` 为低效类型（如 `ALL`）。
+  - `possible_key` 为空，或 `key` 与最优索引不一致。
+  - `key_len` 过短，表明索引未被充分利用。
+
+---
+
+### **优化建议**
+1. **添加索引**：如果 `possible_key` 为空，考虑添加合适的索引。
+2. **优化查询条件**：如果 `key_len` 较短，检查查询条件是否充分利用了复合索引的最左前缀原则。
+3. **调整索引结构**：如果 `key` 与最优索引不一致，考虑调整索引或查询条件，使数据库选择最优索引。
+
+---
+
+### **总结**
+通过分析 `type`、`possible_key`、`key_len` 和 `key` 这四个字段，可以快速判断查询的性能优劣，并针对性地进行优化。如果有具体的查询场景或问题，可以随时告诉我，我会帮你进一步分析！ 😊*/

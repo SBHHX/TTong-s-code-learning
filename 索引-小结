@@ -1,0 +1,384 @@
+-- 创建一个名为 large_table 的表
+CREATE TABLE large_table (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    age INT,
+    address VARCHAR(255),
+    email VARCHAR(100)
+);
+
+-- 开启事务，提高插入效率
+START TRANSACTION;
+
+-- 使用循环插入 100 万条数据
+DELIMITER //
+CREATE PROCEDURE insert_large_data()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 1000000 DO
+        INSERT INTO large_table (name, age, address, email)
+        VALUES (CONCAT('User', i), FLOOR(RAND() * 100), CONCAT('Address', i), CONCAT('user', i, '@example.com'));
+        SET i = i + 1;
+    END WHILE;
+END //
+DELIMITER ;
+
+-- 调用存储过程插入数据
+CALL insert_large_data();
+
+-- 提交事务
+COMMIT;
+
+-- 执行 COUNT(*) 查询并记录时间
+SELECT COUNT(*) FROM large_table;
+
+/*验证索引效率
+在未建立索引之前，执行如下SQL语句，查看SQL的耗时。
+SELECT*FROM tb sku WHERESn='100000003145001';
+针对字段创建索引
+create index idx sku sn on tb sku(sn);
+然后再次执行相同的SOL语句，再次查看SOL的耗时:
+SELECT*FROM tb sku WHERESn='100000003145001';*/
+
+-- 终止进程
+
+-- SHOW PROCESSLIST;
+
+-- KILL QUERY [进程ID];
+
+-- KILL CONNECTION [进程ID];
+
+
+
+
+/*最左前缀法则
+如果索引了多列(联合索引)，要遵守最左前缀法则。最左前缀法则指的是查询从索引的最左列开始，并且不跳过索引中的列。
+如果跳跃某一列，索引将部分失效(后面的字段索引失效)。
+explain select * from tb_user where profession ='软件工程' and age = 31 and status = '0',
+explain select * from tb_user where profession ='软件工程' and age = 31;
+explain select *from tb user where profession='软件工程’
+explain select * from tb user where age = 31 and status = '0';
+A
+explain select * from tb user where status ='0';*/
+
+show index from tb_user;
+
+select * from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain  select * from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain  select * from tb_user where profession = '软件工程' ;
+
+explain  select * from tb_user where age = 31 and status = '0';
+
+explain  select * from tb_user where status = '0';
+
+explain  select * from tb_user where profession = '软件工程'  and status = '0';
+
+explain  select * from tb_user where profession = '软件工程' and age = 31;
+
+-- 只要最左边的索引存在就行，前后位置无所谓
+explain  select * from tb_user where age = 31 and status = '0' and profession = '软件工程';
+
+/*范围查询
+联合索引中，出现范围查询(>，<)，范围查询右侧的列索引失效
+explain select * from tb user where profession='软件工程’and age > 30 and status ='0',
+explain select * from tb user where profession='软件工程'and age >= 30 and status='0'*/
+
+select * from tb_user where profession = '软件工程' and age > 30 and status = '0';
+
+-- 最右侧的索引失效
+explain select * from tb_user where profession = '软件工程' and age > 30 and status = '0';
+
+-- 用>=或<=就行了
+explain select * from tb_user where profession = '软件工程' and age >= 30 and status = '0';
+
+
+show index from tb_user;
+
+select * from tb_user where phone = '17799990000';
+
+explain select * from tb_user where phone = '17799990000';
+
+select * from tb_user where phone like '%15';
+
+-- substring截取字符串 重点！！！
+SELECT *
+FROM tb_user
+WHERE SUBSTRING(phone, -2) = '15';
+
+-- 还有一种截取方法
+-- 从第10位开始截取2个字符串 = ‘15’;
+select * from tb_user where substring(phone,10,2) = '15';
+
+explain select * from tb_user where substring(phone,10,2) = '15';
+
+
+
+
+
+/*字符串不加引号
+字符串类型字段使用时，不加引号，索引将失效，
+explain select * from tb user where profession ="软件工程' and age = 31 and status = 0; -- 不知道为什么，我的这条没失效，可能是因为联合查询吧
+
+explain select * from tb user where phone=17799990015,*/
+
+/*索引列运算
+不要在索引列上进行运算操作，
+索引将失效
+explain select *from tb user where substring(phone,10,2)= '15'*/
+
+/*在MySQL中，查询`varchar`类型字段时不加单引号，虽然有时能查询出结果，但索引可能不被使用，原因如下：
+
+### 数据类型隐式转换
+当你在`where`条件中对`varchar`类型的`phone`字段和数字进行比较，却没有给数字加单引号时，MySQL会进行隐式数据类型转换。它会把`varchar`类型的`phone`字段值转换为数字类型来和你提供的数字做比较。例如这里`phone = 17799990015`，MySQL会尝试将`phone`字段的每个值转为数字，这种转换会阻止索引的使用。因为索引是按照原字段的数据类型和顺序构建的，一旦发生类型转换，索引就无法有效匹配了。
+
+### 正确的查询方式
+为了能让索引生效，应该按照字段原本的数据类型进行查询，即给`phone`字段的查询值加上单引号，像这样`phone = '17799990015'` ，这样MySQL就能直接利用`phone`字段上的索引快速定位数据，提高查询效率。
+*/
+
+explain select * from tb_user where phone = 17799990000;
+
+explain select * from tb_user where profession = '软件工程' and age = 30 and status = '0';
+
+explain select * from tb_user where profession = '软件工程' and age = 30 and status = 0;
+
+
+
+
+
+/*模糊查询
+如果仅仅是尾部模糊匹配，索引不会失效。如果是头部模糊匹配，索引失效。
+explain select *from tb user where profession like "软件%',
+explain select *from tb user where profession like '%工程’
+explain select * from tb user where profession like '%工%'*/
+
+select * from tb_user where profession like '软件%' ;
+
+explain select * from tb_user where profession like '软件%' ;
+
+select * from tb_user where profession like '%工程' ;
+
+explain select * from tb_user where profession like '%工程' ;
+
+select * from tb_user where profession like '%件工%' ;
+
+explain select * from tb_user where profession like '%件工%' ;
+
+
+
+
+
+
+/*or连接的条件
+用or分割开的条件，如果or前的条件中的列有索引，而后面的列中没有索引，那么涉及的索引都不会被用到
+explain select * from tb user where id = 10 or age = 23;
+explain select*from tb user where phone='17799990017' or age = 23,
+*/
+
+explain select * from tb_user where id = 10 or age = 23;
+
+explain select*from tb_user where phone='17799990017' or age = 23;
+
+-- 由于age没有索引，所以即使id、phone有索引，索引也会失效。所以需要针对于age也要建立索引。
+create index index_user_age on tb_user(age);
+
+/*数据分布影响
+如果MySQL评估使用索引比全表更慢，则不使用索引。
+select *from tb user where phone >='17799990005'
+select*from tb user where phone >='17799990015'*/
+
+select * from tb_user where phone >='17799990005';
+
+select * from tb_user where phone >='17799990015';
+
+
+/*SQL提示
+SQL提示，是优化数据库的一个重要手段，简单来说，就是在SQL语句中加入一些人为的提示来达到优化操作的目的。
+use index:
+explain select * from tb _user use index(idx_user_pro) where profession ='软件工程'
+
+ignore index:
+explain select * from tb userignore index(idx user pro) where profession='软件工程’,
+
+  force index:
+explain select * from tb user force index(idx user pro) where profession='软件工程’,*/
+
+create index index_user_pro on tb_user(profession);
+
+explain select * from tb_user where profession = '软件工程';
+
+explain select * from tb_user use index(index_user_pro) where profession = '软件工程';
+
+explain select * from tb_user ignore index(index_user_pro) where profession = '软件工程';
+
+explain select * from tb_user force index(index_user_pro) where profession = '软件工程';
+
+
+
+
+/*覆盖索引
+尽量使用覆盖索引(查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到)，减少select*。
+explain select id, profession from tb_user where profession = '软件工程' and age = 31 and status = '0';
+explain select id, profession, age, status from tb_user where profession = '软件工程' and age = 31 and status = '0';
+explain select id, profession, age, status, name from tb_user where profession = '软件工程' and age = 31 and status = '0';
+explain select * from tb_user where profession = '软件工程' and age = 31 and status = '0';
+  */
+
+  /*知识小贴士:
+usingindex condition:查找使用了索引，但是需要回表查询数据
+using where;using index:查找使用了索引，但是需要的数据都在索引列中能找到，所以不需要回表查询数据*/
+
+
+/*一张表,有四个字段(id,username,password,status)
+由于数据量大,需要对以下SQL语句进行优化,该如何进
+行才是最优方案:
+select id,username,password from tb user where username = 'itcast ,*/
+
+-- 建立username和password的联合索引最优
+-- 建立两个的单列索引没用，不能实现覆盖索引
+-- 一个索引包含全部返回字段，才能实现覆盖索引
+
+drop index index_user_age on tb_user;
+-- drop index index_user_email on tb_user;
+drop index index_user_pro on tb_user;
+
+show index from tb_user;
+
+
+select * from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain select * from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+select id,profession from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain select id,profession from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain select id,profession,age,status from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+explain select id,profession,age,status,name from tb_user where profession = '软件工程' and age = 31 and status = '0';
+
+
+
+
+
+/*前缀索引
+当字段类型为字符串(varchar，text等)时，有时候需要索引很长的字符串，这会让索引变得很大，查询时，浪费大量的磁盘!0，影响查
+询效率。此时可以只将字符串的一部分前缀，建立索引，这样可以大大节约索引空间，从而提高索引效率。
+语法
+create index idx_xxxx on table_name(column(n));
+前缀长度
+可以根据索引的选择性来决定，而选择性是指不重复的索引值(基数)和数据表的记录总数的比值，索引选择性越高则查询效率越高
+唯一索引的选择性是1，这是最好的索引选择性，性能也是最好的。
+select count(distinct email)/ count(*) from tb_user;
+select count(distinct substring(email,1,5)) / count(*) from tb_user*/
+
+select count(*) from tb_user;
+
+select count(email) from tb_user;
+
+select count(distinct email) from tb_user;  -- 查询不重复的email
+
+select count(distinct email)/ count(*) from tb_user;  -- 选择性为1，最好的
+
+select count(distinct substring(email,1,10)) / count(*) from tb_user;
+
+select count(distinct substring(email,1,9)) / count(*) from tb_user;
+
+select count(distinct substring(email,1,4)) / count(*) from tb_user;
+
+select count(distinct substring(email,1,3)) / count(*) from tb_user;
+
+-- 选9，4，选择性相同，但4，3更小，4比3选择性高，看具体需要
+
+create index index_user_email_4 on tb_user(email(4));
+
+show index from tb_user;
+
+select * from tb_user where email ='daqiao666@qq.com';
+
+explain select * from tb_user where email ='daqiao666@qq.com';
+
+-- 前缀索引，通过辅助索引查询到一个之后，再通过聚集索引叶子下的row验证匹配，
+-- 然后通过辅助索引的底层链表，开始看下一个前x个字符是否匹配，直到在范围内搜索完
+
+
+
+
+/*单列索引与联合索引
+
+ 单列索引:即一个索引只包含单个列。
+联合索引:即一个索引包含了多个列。
+在业务场景中，如果存在多个查询条件，考虑针对于查询字段建立索引时，建议建立联合索引，而非单列索引。
+单列索引情况:
+explain select id, phone, name from tb user where phone= '17799990010'and name ='韩信';
+create unique indexidx phone name on tb user(phone, name)
+
+ 多条件联合查询时，MySQL优化器会评估哪个字段的索引效率更高，
+会选择该索引完成本次查询。
+
+结果就是不能覆盖索引，要回表
+
+  至于id呢，本身二级索引叶子底下挂的就是主键id，所以一次就查完了，建议联合索引
+
+  但是创建联合索引时要记得考虑最左原作哦，别忘了吧最左侧哪一个给带上，所以要考虑清楚哪个放左边
+ */
+
+
+
+
+/*索引设计原则
+1.针对于数据量较大，且查询比较频繁的表建立索引。
+
+2.针对于常作为查询条件(where)、排序(orderby)、分组(groupby)操作的字段建立索引。
+
+3.尽量选择区分度高的列作为索引，尽量建立唯一索引，区分度越高，使用索引的效率越高。
+
+4.如果是字符串类型的字段，字段的长度较长，可以针对于字段的特点，建立前缀索引。
+
+5.尽量使用联合索引，减少单列索引，查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表，提高查询效率。
+要控制索引的数量，索引并不是多多益善，索引越多，维护索引结构的代价也就越大，会影响增删改的效率。
+
+6.如果索引列不能存储NULL值，请在创建表时使用NOTNULL约束它。当优化器知道每列是否包含NULL值时，它可以更好地确定哪个
+索引最有效地用于查询。
+*/
+
+
+
+
+-- 总结
+
+/*1.索引概述
+索引是高效获取数据的数据结构
+
+  2.索引结构
+B+Tree
+Hash
+
+  3.索引分类
+主键索引、唯一索引、常规索引、全文索引
+聚集索引、二级索引
+索引语法
+
+  4.
+create lunique ]index xxx on xxx(xxxx)
+show index from xxxx;
+drop index xxx on xxxx ;
+
+5.SQL性能分析
+执行频次、慢查询日志、profile、explain
+
+6.索引使用
+联合索引
+索引失效
+SQL提示
+覆盖索引
+前缀索引
+单列)联合索引
+索引设计原则
+
+7.
+*
+字段
+索引
+*/
